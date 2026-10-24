@@ -1,0 +1,10 @@
+- insert:
+  - id: usd-brep
+    name: dsh-usd-brep
+    config:
+      pythonExe: ""
+      venvDir: ""
+      autoInstall: true
+      workDir: ""
+      timeoutMs: 120000
+      defaultUsda: "brep_example.usda"

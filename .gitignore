@@ -1,0 +1,17 @@
+# venv / runtime
+.usd-brep-venv/
+*.pyc
+__pycache__/
+
+# node
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+
+# build artifacts
+*.tgz
+
+# generated outputs
+brep_example.usda
+brep_example_live.usda
+brep_example_integration.usda
