@@ -435,8 +435,10 @@ var module = undefined, exports = undefined, define = undefined;
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         var key = new THREE.DirectionalLight(0xffffff, 1.7); key.position.set(5, 8, 4); scene.add(key);
         var rim = new THREE.DirectionalLight(0x88aaff, 0.6); rim.position.set(-5, -2, -4); scene.add(rim);
-        // 坐标平面已按用户要求移除（grid 变量保留空 Group 以兼容 setMesh 引用）
+        // 网格地面已移除；保留三色坐标系轴线（X红 Y绿 Z蓝）
         var grid = new THREE.Group(); scene.add(grid);
+        var axesHelper = new THREE.AxesHelper(5); scene.add(axesHelper);
+        axesHelper.material.transparent = true; axesHelper.material.opacity = 0.8;
 
         var group = new THREE.Group(); scene.add(group);
         var meshObj = null, edgesObj = null, bboxHelper = null, measureOn = false;
