@@ -1,6 +1,6 @@
 {
   "name": "dsh-usd-brep",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DSH plugin: drive NVIDIA usd-brep (NURBS BRep + OpenUSD I/O) from agents via host tools, plus a visual 3D modeling studio (left form, right live render)",
   "type": "module",
   "main": "lib/index.js",
