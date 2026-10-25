@@ -82,6 +82,7 @@ var module = undefined, exports = undefined, define = undefined;
         var [nlText, setNlText] = React.useState('');
         var [nlBusy, setNlBusy] = React.useState(false);
         var [nlLog, setNlLog] = React.useState('');
+        var [history, setHistory] = React.useState([]);
 
         React.useEffect(function () {
           var cancelled = false;
@@ -155,6 +156,33 @@ var module = undefined, exports = undefined, define = undefined;
           if (engineRef.current && engineRef.current.hasMesh()) engineRef.current.setMeasure(measure);
         }, [measure]);
 
+        // ---- STEP 导出：把当前网格发宿主生成 AP214 并触发下载 ----
+        function exportStep() {
+          var mesh = lastMeshRef.current;
+          if (!mesh || !mesh.points.length) { setError('还没有可导出的模型'); return; }
+          setError('');
+          try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', 'api/usd-brep/export', true);
+            xhr.setRequestHeader('content-type', 'application/json');
+            xhr.responseType = 'blob';
+            xhr.onload = function () {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                var url = URL.createObjectURL(xhr.response);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'usd_brep_model_' + Date.now() + '.step';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+              } else {
+                setError('导出失败：HTTP ' + xhr.status);
+              }
+            };
+            xhr.onerror = function () { setError('导出失败：网络错误'); };
+            xhr.send(JSON.stringify({ points: mesh.points, triangles: mesh.triangles, name: 'usd_brep_model' }));
+          } catch (e) { setError('导出失败：' + String(e && e.message ? e.message : e)); }
+        }
+
         // ---- 对话建模：把自然语言描述交给宿主会话里的 agent 生成代码并执行 ----
         var progressTimerRef = React.useRef(null);
         function stopProgressPoll() {
@@ -200,6 +228,9 @@ var module = undefined, exports = undefined, define = undefined;
             var data = { points: j.points, triangles: j.triangles };
             lastMeshRef.current = data;
             setMeta({ vertices: data.points.length, triangles: data.triangles.length, volume: j.volume });
+            setHistory(function (h) {
+              return h.concat([{ key: Date.now(), prompt: text, points: j.points, triangles: j.triangles, volume: j.volume }]);
+            });
             if (engineRef.current) {
               engineRef.current.setMesh(data.points, data.triangles, wire);
               engineRef.current.setMeasure(measure);
@@ -256,6 +287,25 @@ var module = undefined, exports = undefined, define = undefined;
               ' · ', meta.vertices, ' 顶点 · ', meta.triangles, ' 三角面'),
             h('div', { style: styles.hint },
               '用下方输入框描述想要的模型，AI 会生成 usd_brep 代码并实时渲染。'),
+            history.length > 0 && h('div', null,
+              h('div', { style: styles.histTitle }, '🕘 历史记录'),
+              history.slice().reverse().map(function (item, idx) {
+                return h('div', {
+                  key: item.key, style: styles.histItem,
+                  title: '点击重新显示',
+                  onClick: function () {
+                    lastMeshRef.current = { points: item.points, triangles: item.triangles };
+                    setMeta({ vertices: item.points.length, triangles: item.triangles.length, volume: item.volume });
+                    if (engineRef.current) {
+                      engineRef.current.setMesh(item.points, item.triangles, wire);
+                      engineRef.current.setMeasure(measure);
+                    }
+                  },
+                },
+                h('div', { style: styles.histPrompt }, (idx + 1) + '. ' + item.prompt),
+                h('div', { style: styles.histMeta }, '体积 ' + item.volume + ' · ' + item.points.length + ' 顶点'));
+              }),
+            ),
             ), // /leftScroll
 
             // ---- 对话建模：DSH composer 风格，固定在左栏底部 ----
@@ -316,6 +366,7 @@ var module = undefined, exports = undefined, define = undefined;
               toolbarBtn('线框', function () { setWire(function (w) { return !w; }); }, wire),
               toolbarBtn('测量', function () { setMeasure(function (m) { return !m; }); }, measure),
               toolbarBtn('截图', function () { if (engineRef.current) engineRef.current.screenshot(); }),
+              toolbarBtn('⬇ 导出STEP', function () { exportStep(); }),
               h('div', { style: styles.tbFlex }),
               h('span', { style: styles.tbTitle }, 'NURBS BRep 实时视图'),
             ),
@@ -389,14 +440,15 @@ var module = undefined, exports = undefined, define = undefined;
         function onMove(e) {
           if (!dragging) return;
           var dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
-          if (button === 0) { theta -= dx * 0.008; phi = Math.max(0.05, Math.min(Math.PI - 0.05, phi - dy * 0.008)); }
+          // 左键 = 平移；右键 = 旋转（用户习惯映射）
+          if (button === 2) { theta -= dx * 0.008; phi = Math.max(0.05, Math.min(Math.PI - 0.05, phi - dy * 0.008)); }
           else {
             var fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
             var right = new THREE.Vector3().crossVectors(fwd, camera.up).normalize();
-            target.addScaledVector(right, dx * 0.01 * radius / 10).addScaledVector(camera.up, -dy * 0.01 * radius / 10);
+            target.addScaledVector(right, -dx * 0.01 * radius / 10).addScaledVector(camera.up, dy * 0.01 * radius / 10);
           }
         }
-        function onWheel(e) { radius = Math.max(0.2, Math.min(500, radius * (1 + e.deltaY * 0.001))); e.preventDefault(); }
+        function onWheel(e) { radius = Math.max(0.2, Math.min(500, radius * (1 - e.deltaY * 0.001))); e.preventDefault(); }
         var el = renderer.domElement;
         el.addEventListener('pointerdown', onDown);
         window.addEventListener('pointerup', onUp);
@@ -525,6 +577,10 @@ var module = undefined, exports = undefined, define = undefined;
         nlSendBusy: { width: 30, height: 30, borderRadius: 15, background: '#eef1f5', color: '#9aa1ad', fontSize: 15, textAlign: 'center', lineHeight: '30px', flexShrink: 0 },
         nlLog: { marginTop: 8, fontSize: 12, color: '#1d4ed8', paddingLeft: 4 },
         nlStages: { marginTop: 8, padding: '6px 10px', borderRadius: 8, background: '#f3f6fb', border: '1px solid #e3e9f2', maxHeight: 200, overflowY: 'auto' },
+        histTitle: { marginTop: 18, fontSize: 12, fontWeight: 700, color: '#5a6270', marginBottom: 6 },
+        histItem: { padding: '6px 8px', borderRadius: 6, marginBottom: 4, background: '#ffffff', border: '1px solid #e2e5ea', cursor: 'pointer' },
+        histPrompt: { fontSize: 12, color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+        histMeta: { fontSize: 11, color: '#15803d', marginTop: 2 },
         nlStageLine: { fontSize: 12, color: '#3b5b8f', lineHeight: '20px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' },
         right: { flex: 1, position: 'relative', overflow: 'hidden', background: '#0a0a14', minHeight: '360px' },
         canvas: { position: 'absolute', inset: 0 },
