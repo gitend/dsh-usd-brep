@@ -27,6 +27,9 @@ var module = undefined, exports = undefined, define = undefined;
       var React = require('react');
       var h = React.createElement;
 
+      // ---- 模块级持久状态：面板切走再切回来，模型与历史不丢 ----
+      var persist = { mesh: null, history: [], meta: null };
+
       var CUSTOM_TEMPLATE = [
         'import math',
         '',
@@ -62,7 +65,7 @@ var module = undefined, exports = undefined, define = undefined;
       function Panel() {
         var canvasRef = React.useRef(null);
         var engineRef = React.useRef(null);
-        var lastMeshRef = React.useRef(null);
+        var lastMeshRef = React.useRef(persist.mesh);
         var threeState = React.useRef('loading');
         var [kind, setKind] = React.useState('washer');
         var [params, setParams] = React.useState({
@@ -76,13 +79,13 @@ var module = undefined, exports = undefined, define = undefined;
         var [busy, setBusy] = React.useState(false);
         var [status, setStatus] = React.useState('');
         var [error, setError] = React.useState('');
-        var [meta, setMeta] = React.useState(null);
+        var [meta, setMeta] = React.useState(persist.meta);
         var [wire, setWire] = React.useState(true);
         var [measure, setMeasure] = React.useState(false);
         var [nlText, setNlText] = React.useState('');
         var [nlBusy, setNlBusy] = React.useState(false);
         var [nlLog, setNlLog] = React.useState('');
-        var [history, setHistory] = React.useState([]);
+        var [history, setHistory] = React.useState(persist.history);
 
         React.useEffect(function () {
           var cancelled = false;
@@ -97,6 +100,11 @@ var module = undefined, exports = undefined, define = undefined;
               if (cancelled) return;
               if (canvasRef.current && canvasRef.current.clientHeight > 10) {
                 engineRef.current = initScene(canvasRef.current);
+                // 面板切换回来时恢复上次模型（persist 保存于模块级，不随组件卸载清空）
+                var saved = persist.mesh;
+                if (saved && saved.points && saved.points.length) {
+                  engineRef.current.setMesh(saved.points, saved.triangles, true);
+                }
               } else if (tries++ < 60) {
                 setTimeout(tryInit, 250);
               } else {
@@ -140,7 +148,8 @@ var module = undefined, exports = undefined, define = undefined;
             setStatus('');
             var data = { points: j.points, triangles: j.triangles };
             lastMeshRef.current = data;
-            setMeta({ vertices: data.points.length, triangles: data.triangles.length, volume: j.volume });
+            persist.mesh = data;
+            setMeta(function (m) { persist.meta = { vertices: data.points.length, triangles: data.triangles.length, volume: j.volume }; return persist.meta; });
             if (engineRef.current) {
               engineRef.current.setMesh(data.points, data.triangles, wire);
               engineRef.current.setMeasure(measure);
@@ -227,7 +236,8 @@ var module = undefined, exports = undefined, define = undefined;
             if (j.code) setCustomCode(j.code);
             var data = { points: j.points, triangles: j.triangles };
             lastMeshRef.current = data;
-            setMeta({ vertices: data.points.length, triangles: data.triangles.length, volume: j.volume });
+            persist.mesh = data;
+            setMeta(function (m) { persist.meta = { vertices: data.points.length, triangles: data.triangles.length, volume: j.volume }; return persist.meta; });
             setHistory(function (h) {
               return h.concat([{ key: Date.now(), prompt: text, points: j.points, triangles: j.triangles, volume: j.volume }]);
             });
@@ -425,11 +435,8 @@ var module = undefined, exports = undefined, define = undefined;
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         var key = new THREE.DirectionalLight(0xffffff, 1.7); key.position.set(5, 8, 4); scene.add(key);
         var rim = new THREE.DirectionalLight(0x88aaff, 0.6); rim.position.set(-5, -2, -4); scene.add(rim);
-        // 坐标平面：高对比度网格（黑底上清晰可见）+ X/Z 轴高亮
-        var grid = new THREE.GridHelper(14, 28, 0x5b7bd5, 0x2c3e6e); scene.add(grid);
-        grid.material.transparent = true; grid.material.opacity = 0.9;
-        var axesHelper = new THREE.AxesHelper(7); scene.add(axesHelper);
-        axesHelper.material.transparent = true; axesHelper.material.opacity = 0.85;
+        // 坐标平面已按用户要求移除（grid 变量保留空 Group 以兼容 setMesh 引用）
+        var grid = new THREE.Group(); scene.add(grid);
 
         var group = new THREE.Group(); scene.add(group);
         var meshObj = null, edgesObj = null, bboxHelper = null, measureOn = false;
