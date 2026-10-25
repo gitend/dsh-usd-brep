@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { name, inject, Config, apply } from "../lib/index.js";
 
 assert.equal(name, "usd-brep", "plugin name");
-assert.deepEqual(inject, ["tools"], "inject targets");
+assert.deepEqual(inject, ["tools", "connection", "llm"], "inject targets");
 
 // Config is a schemastery object schema; it is used as metadata/typing for
 // rawConfig. apply() merges over a DEFAULTS const that mirrors the schema
@@ -21,7 +21,12 @@ const ctx = { tools: { register: (d) => registered.push(d) } };
 apply(ctx, undefined);
 assert.deepEqual(
   registered.map((d) => d.name),
-  ["usd_brep_version", "usd_brep_run_example", "usd_brep_run_snippet"],
+  [
+    "usd_brep_nl_selftest",
+    "usd_brep_version",
+    "usd_brep_run_example",
+    "usd_brep_run_snippet",
+  ],
   "tool registration order"
 );
 
@@ -40,6 +45,6 @@ apply(
   { tools: { register: (d) => registered2.push(d) } },
   { timeoutMs: 5_000, defaultUsda: "custom.usda" },
 );
-assert.equal(registered2.length, 3);
+assert.equal(registered2.length, 4);
 
 console.log("smoke: OK —", registered.map((d) => d.name).join(", "));

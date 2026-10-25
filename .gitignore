@@ -15,3 +15,9 @@ pnpm-lock.yaml
 brep_example.usda
 brep_example_live.usda
 brep_example_integration.usda
+
+mesh_data.json
+washer_mesh.json
+viewer.html
+washer_viewer.htmlsphere_r2_minus_box.usda
+washer.usda
