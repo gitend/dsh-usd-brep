@@ -425,7 +425,11 @@ var module = undefined, exports = undefined, define = undefined;
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         var key = new THREE.DirectionalLight(0xffffff, 1.7); key.position.set(5, 8, 4); scene.add(key);
         var rim = new THREE.DirectionalLight(0x88aaff, 0.6); rim.position.set(-5, -2, -4); scene.add(rim);
-        var grid = new THREE.GridHelper(14, 14, 0x2a3a55, 0x1a1a2e); scene.add(grid);
+        // 坐标平面：高对比度网格（黑底上清晰可见）+ X/Z 轴高亮
+        var grid = new THREE.GridHelper(14, 28, 0x5b7bd5, 0x2c3e6e); scene.add(grid);
+        grid.material.transparent = true; grid.material.opacity = 0.9;
+        var axesHelper = new THREE.AxesHelper(7); scene.add(axesHelper);
+        axesHelper.material.transparent = true; axesHelper.material.opacity = 0.85;
 
         var group = new THREE.Group(); scene.add(group);
         var meshObj = null, edgesObj = null, bboxHelper = null, measureOn = false;
