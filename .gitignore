@@ -12,12 +12,8 @@ pnpm-lock.yaml
 *.tgz
 
 # generated outputs
-brep_example.usda
-brep_example_live.usda
-brep_example_integration.usda
-
+*.usda
 mesh_data.json
 washer_mesh.json
 viewer.html
-washer_viewer.htmlsphere_r2_minus_box.usda
-washer.usda
+washer_viewer.html
